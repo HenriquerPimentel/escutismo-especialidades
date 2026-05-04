@@ -1,9 +1,10 @@
 name: Gerar livro de especialidades
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch: {}
+
+permissions:
+  contents: write
 
 jobs:
   generate:
@@ -34,14 +35,83 @@ jobs:
           python gerar_pdf.py -d -s 4
           python gerar_pdf.py
 
-      - name: Carregar livros
-        uses: actions/upload-artifact@v4
+      - name: Comparar com a release anterior
+        id: compare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          FILES=(
+            "livro_especialidades_primeira.pdf"
+            "livro_especialidades_segunda.pdf"
+            "livro_especialidades_terceira.pdf"
+            "livro_especialidades_quarta.pdf"
+            "livro_especialidades.pdf"
+          )
+
+          mkdir -p previous_release
+          changed=0
+
+          code=$(curl -sS -o latest_release.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest")
+
+          if [ "$code" != "200" ]; then
+            echo "Sem release anterior. Vai criar nova release."
+            changed=1
+          else
+            for file in "${FILES[@]}"; do
+              asset_id=$(jq -r --arg name "$file" '.assets[]? | select(.name == $name) | .id' latest_release.json | head -n1)
+
+              if [ -z "${asset_id}" ] || [ "${asset_id}" = "null" ]; then
+                echo "Asset em falta na release anterior: ${file}"
+                changed=1
+                continue
+              fi
+
+              curl -sSL \
+                -H "Authorization: Bearer ${GH_TOKEN}" \
+                -H "Accept: application/octet-stream" \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" \
+                -o "previous_release/${file}"
+
+              if ! cmp -s "${file}" "previous_release/${file}"; then
+                echo "Diferença detetada em ${file}"
+                changed=1
+              fi
+            done
+          fi
+
+          if [ "$changed" -eq 1 ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Definir metadados da release
+        id: release_meta
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          tag="pdf-$(date +'%Y%m%d-%H%M%S')"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "name=Livro de Especialidades ${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar nova release com PDFs
+        if: steps.compare.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
         with:
-          name: especialidades-pdf
-          path: |
+          tag_name: ${{ steps.release_meta.outputs.tag }}
+          name: ${{ steps.release_meta.outputs.name }}
+          generate_release_notes: true
+          files: |
             livro_especialidades_primeira.pdf
             livro_especialidades_segunda.pdf
             livro_especialidades_terceira.pdf
             livro_especialidades_quarta.pdf
             livro_especialidades.pdf
-          if-no-files-found: warn
+
+      - name: Sem alterações
+        if: steps.compare.outputs.changed == 'false'
+        run: echo "Os PDFs são iguais aos da última release. Nenhuma release nova foi criada."
