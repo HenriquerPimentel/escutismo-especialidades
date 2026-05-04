@@ -208,11 +208,11 @@ def compilar_pdf(dados, mapa_paginas=None, is_final=False, section_num=None, map
     avenir_bold_path = os.path.join(FONTS_DIR, "AvenirNext-Bold-01.ttf")
 
     if os.path.exists(lilita_path):
-        pdf.add_font("Lilita", "", lilita_path)
+        pdf.add_font("Lilita", "", lilita_path, uni=True)
     if os.path.exists(avenir_regular_path):
-        pdf.add_font("Avenir-Regular", "", avenir_regular_path)
+        pdf.add_font("Avenir-Regular", "", avenir_regular_path, uni=True)
     if os.path.exists(avenir_bold_path):
-        pdf.add_font("Avenir-Bold", "", avenir_bold_path)
+        pdf.add_font("Avenir-Bold", "", avenir_bold_path, uni=True)
         
     
     gerar_ficha_tecnica(pdf)
