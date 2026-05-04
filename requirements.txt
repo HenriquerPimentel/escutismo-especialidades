@@ -1,0 +1,4 @@
+fpdf
+pypdf
+requests
+beautifulsoup4

@@ -1,0 +1,17 @@
+pycache/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+img_cache_*.jpg
+img_area_*.jpg
+img_areas.jpg
+img_ordem.jpg
+img_secao_*.png
+
+especialidades.json
+
+miolo_temporario.pdf
+livro_especialidades*.pdf
