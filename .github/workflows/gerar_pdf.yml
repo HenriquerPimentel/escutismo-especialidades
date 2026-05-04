@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  generate:
+  atualizar-especialidades:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,13 +27,183 @@ jobs:
         run: |
           python atualizar_especialidades.py
 
-      - name: Gerar todos os PDFs
+      - name: Guardar especialidades atualizadas
+        uses: actions/upload-artifact@v4
+        with:
+          name: especialidades-json
+          path: especialidades.json
+
+  gerar-pdf-primeira:
+    needs: atualizar-especialidades
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
         run: |
-          python gerar_pdf.py -d -s 1
-          python gerar_pdf.py -d -s 2
-          python gerar_pdf.py -d -s 3
-          python gerar_pdf.py -d -s 4
-          python gerar_pdf.py
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restaurar especialidades atualizadas
+        uses: actions/download-artifact@v4
+        with:
+          name: especialidades-json
+
+      - name: Gerar PDF da primeira secção
+        run: python gerar_pdf.py -d -s 1
+
+      - name: Guardar PDF da primeira secção
+        uses: actions/upload-artifact@v4
+        with:
+          name: livro-especialidades-primeira
+          path: livro_especialidades_primeira.pdf
+
+  gerar-pdf-segunda:
+    needs: atualizar-especialidades
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restaurar especialidades atualizadas
+        uses: actions/download-artifact@v4
+        with:
+          name: especialidades-json
+
+      - name: Gerar PDF da segunda secção
+        run: python gerar_pdf.py -d -s 2
+
+      - name: Guardar PDF da segunda secção
+        uses: actions/upload-artifact@v4
+        with:
+          name: livro-especialidades-segunda
+          path: livro_especialidades_segunda.pdf
+
+  gerar-pdf-terceira:
+    needs: atualizar-especialidades
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restaurar especialidades atualizadas
+        uses: actions/download-artifact@v4
+        with:
+          name: especialidades-json
+
+      - name: Gerar PDF da terceira secção
+        run: python gerar_pdf.py -d -s 3
+
+      - name: Guardar PDF da terceira secção
+        uses: actions/upload-artifact@v4
+        with:
+          name: livro-especialidades-terceira
+          path: livro_especialidades_terceira.pdf
+
+  gerar-pdf-quarta:
+    needs: atualizar-especialidades
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restaurar especialidades atualizadas
+        uses: actions/download-artifact@v4
+        with:
+          name: especialidades-json
+
+      - name: Gerar PDF da quarta secção
+        run: python gerar_pdf.py -d -s 4
+
+      - name: Guardar PDF da quarta secção
+        uses: actions/upload-artifact@v4
+        with:
+          name: livro-especialidades-quarta
+          path: livro_especialidades_quarta.pdf
+
+  gerar-pdf-completo:
+    needs: atualizar-especialidades
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restaurar especialidades atualizadas
+        uses: actions/download-artifact@v4
+        with:
+          name: especialidades-json
+
+      - name: Gerar livro completo
+        run: python gerar_pdf.py
+
+      - name: Guardar livro completo
+        uses: actions/upload-artifact@v4
+        with:
+          name: livro-especialidades-completo
+          path: livro_especialidades.pdf
+
+  publicar-release:
+    needs:
+      - gerar-pdf-primeira
+      - gerar-pdf-segunda
+      - gerar-pdf-terceira
+      - gerar-pdf-quarta
+      - gerar-pdf-completo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Descarregar PDFs gerados
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
 
       - name: Comparar com a release anterior
         id: compare
@@ -43,6 +213,14 @@ jobs:
           set -euo pipefail
 
           FILES=(
+            "dist/livro-especialidades-primeira/livro_especialidades_primeira.pdf"
+            "dist/livro-especialidades-segunda/livro_especialidades_segunda.pdf"
+            "dist/livro-especialidades-terceira/livro_especialidades_terceira.pdf"
+            "dist/livro-especialidades-quarta/livro_especialidades_quarta.pdf"
+            "dist/livro-especialidades-completo/livro_especialidades.pdf"
+          )
+
+          TARGETS=(
             "livro_especialidades_primeira.pdf"
             "livro_especialidades_segunda.pdf"
             "livro_especialidades_terceira.pdf"
@@ -62,11 +240,14 @@ jobs:
             echo "Sem release anterior. Vai criar nova release."
             changed=1
           else
-            for file in "${FILES[@]}"; do
-              asset_id=$(jq -r --arg name "$file" '.assets[]? | select(.name == $name) | .id' latest_release.json | head -n1)
+            for i in "${!FILES[@]}"; do
+              file="${FILES[$i]}"
+              target="${TARGETS[$i]}"
+
+              asset_id=$(jq -r --arg name "$target" '.assets[]? | select(.name == $name) | .id' latest_release.json | head -n1)
 
               if [ -z "${asset_id}" ] || [ "${asset_id}" = "null" ]; then
-                echo "Asset em falta na release anterior: ${file}"
+                echo "Asset em falta na release anterior: ${target}"
                 changed=1
                 continue
               fi
@@ -75,10 +256,10 @@ jobs:
                 -H "Authorization: Bearer ${GH_TOKEN}" \
                 -H "Accept: application/octet-stream" \
                 "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" \
-                -o "previous_release/${file}"
+                -o "previous_release/${target}"
 
-              if ! cmp -s "${file}" "previous_release/${file}"; then
-                echo "Diferença detetada em ${file}"
+              if ! cmp -s "${file}" "previous_release/${target}"; then
+                echo "Diferença detetada em ${target}"
                 changed=1
               fi
             done
@@ -106,11 +287,11 @@ jobs:
           name: ${{ steps.release_meta.outputs.name }}
           generate_release_notes: true
           files: |
-            livro_especialidades_primeira.pdf
-            livro_especialidades_segunda.pdf
-            livro_especialidades_terceira.pdf
-            livro_especialidades_quarta.pdf
-            livro_especialidades.pdf
+            dist/livro-especialidades-primeira/livro_especialidades_primeira.pdf
+            dist/livro-especialidades-segunda/livro_especialidades_segunda.pdf
+            dist/livro-especialidades-terceira/livro_especialidades_terceira.pdf
+            dist/livro-especialidades-quarta/livro_especialidades_quarta.pdf
+            dist/livro-especialidades-completo/livro_especialidades.pdf
 
       - name: Sem alterações
         if: steps.compare.outputs.changed == 'false'
